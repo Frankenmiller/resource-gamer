@@ -30,11 +30,17 @@ HUB_ARCHETYPES = {
 
 class Rig:
     def __init__(self, max_cargo=20, max_fuel=100):
+        # Current Stats
         self.max_cargo = max_cargo
-        self.cargo = {comm: 0 for comm in COMMODITIES}
         self.max_fuel = max_fuel
         self.fuel = max_fuel
         self.condition = 100.0  # Percentage
+        self.cargo = {comm: 0 for comm in COMMODITIES}
+        
+        # Upgrade Tiers (Level 1 is baseline)
+        self.cargo_tier = 1
+        self.engine_tier = 1
+        self.armor_tier = 1
 
     @property
     def used_cargo(self):
@@ -44,6 +50,15 @@ class Rig:
     def free_cargo(self):
         return self.max_cargo - self.used_cargo
 
+    @property
+    def fuel_per_jump(self):
+        # Base is 20L, drops by 4L per engine tier upgrade
+        return max(8, 24 - (self.engine_tier * 4))
+
+    @property
+    def damage_reduction(self):
+        # Every armor tier reduces incoming event damage by 25%
+        return (self.armor_tier - 1) * 0.25
 
 class Market:
     def __init__(self, name):
@@ -101,12 +116,16 @@ class EventEngine:
             self.active_event_text = "📉 GLUT: A massive corporate asset liquidation floods regional markets!"
             self.active_global_modifier = 0.5
             self.market_modifier_name = "Resource Glut"
-            
+        
         elif roll < 0.35:
-            damage = random.randint(15, 30)
-            player.rig.condition = max(0, player.rig.condition - damage)
-            self.active_event_text = f"⚙️ BREAKDOWN: A blown coolant manifold damaged your Rig (-{damage}% Condition)."
+            base_damage = random.randint(15, 30)
+            # Apply armor damage reduction math
+            reduction = base_damage * player.rig.damage_reduction
+            final_damage = max(0, int(base_damage - reduction))
             
+            player.rig.condition = max(0, player.rig.condition - final_damage)
+            self.active_event_text = f"⚙️ BREAKDOWN: Coolant manifold blew. Armor absorbed {int(reduction)}% damage. Rig took -{final_damage}% Condition."            
+
         elif roll < 0.45:
             fine = random.randint(300, 700)
             self.active_event_text = f"🛂 CUSTOMS: Border patrols hit you with transit tariffs. Cost you ${fine}."
@@ -231,8 +250,13 @@ class GameEngine:
     def handle_travel(self):
         print("\nSelect destination hub to route flight plan:")
         destinations = [h for h in HUBS if h != self.player.current_hub]
+        
+        # Pull dynamic fuel cost based on engine tier
+        fuel_cost = self.player.rig.fuel_per_jump
+        
         for idx, hub in enumerate(destinations, 1):
-            print(f"[{idx}] {hub} (Cost: 20L Fuel, 5% Wear & Tear)")
+            # Dynamic text printout reflecting upgrades
+            print(f"[{idx}] {hub} (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
         
         choice = input(">> ").strip()
         if not choice.isdigit() or int(choice) not in range(1, len(destinations) + 1):
@@ -240,9 +264,9 @@ class GameEngine:
 
         destination = destinations[int(choice) - 1]
         
-        # Check constraints
-        if self.player.rig.fuel < 20:
-            print("❌ Not enough fuel to complete jump!")
+        # Dynamic validation check
+        if self.player.rig.fuel < fuel_cost:
+            print(f"❌ Not enough fuel to complete jump! Needs {fuel_cost}L.")
             time.sleep(1.5)
             return
         if self.player.rig.condition <= 0:
@@ -250,8 +274,8 @@ class GameEngine:
             time.sleep(1.5)
             return
 
-        # Execute travel overhead deductions
-        self.player.rig.fuel -= 20
+        # Execute travel overhead deductions using dynamic value
+        self.player.rig.fuel -= fuel_cost
         self.player.rig.condition = max(0, self.player.rig.condition - 5)
         self.player.current_hub = destination
         self.player.days_elapsed += 1
