@@ -287,33 +287,84 @@ class GameEngine:
 
     def handle_maintenance(self):
         r = self.player.rig
+        
+        # Maintenance math
         fuel_needed = r.max_fuel - r.fuel
         fuel_cost = fuel_needed * 4
         repair_needed = 100 - r.condition
         repair_cost = int(repair_needed * 30)
 
-        print(f"\n--- Maintenance Bay ---")
-        print(f"[1] Top off Fuel (+{fuel_needed}L)  -->  ${fuel_cost}")
-        print(f"[2] Structural Repairs (+{repair_needed:.1f}%) -->  ${repair_cost}")
-        print("[Press Enter to Return]")
+        # Upgrade costs and balancing tiers
+        cargo_upgrade_cost = r.cargo_tier * 3500
+        engine_upgrade_cost = r.engine_tier * 4000
+        armor_upgrade_cost = r.armor_tier * 3000
 
-        choice = input(">> ").strip()
-        if choice == "1" and fuel_needed > 0:
-            if self.player.cash >= fuel_cost:
-                self.player.cash -= fuel_cost
-                r.fuel = r.max_fuel
-                print("Fuel tanks full.")
-            else:
-                print("Insufficient cash.")
-            time.sleep(1)
-        elif choice == "2" and repair_needed > 0:
-            if self.player.cash >= repair_cost:
-                self.player.cash -= repair_cost
-                r.condition = 100.0
-                print("Chassis structural integrity restored.")
-            else:
-                print("Insufficient cash.")
-            time.sleep(1)
+        while True:
+            self.draw_header()
+            print(f"\n================= 🛠️ HANGAR & UPGRADE SHOP 🛠️ ================")
+            print(f" [1] Top off Fuel (+{fuel_needed}L)             -->  ${fuel_cost}")
+            print(f" [2] Structural Repairs (+{repair_needed:.1f}%)        -->  ${repair_cost}")
+            print(f"-----------------------------------------------------------")
+            print(f" [3] Expand Cargo Hull (Tier {r.cargo_tier} -> {r.cargo_tier + 1}) --------->  ${cargo_upgrade_cost} (+10 Space)")
+            print(f" [4] Fine-Tune Hyper-Drive (Tier {r.engine_tier} -> {r.engine_tier + 1}) ----->  ${engine_upgrade_cost} (-4L Fuel/Jump)")
+            print(f" [5] Reinforce Titanium Armor (Tier {r.armor_tier} -> {r.armor_tier + 1}) -->  ${armor_upgrade_cost} (+25% Dmg Resist)")
+            print(f" [B]ack to Main Terminal Menu")
+            print(f"===========================================================")
+            
+            choice = input("Hangar Command >> ").strip().lower()
+
+            if choice == "1" and fuel_needed > 0:
+                if self.player.cash >= fuel_cost:
+                    self.player.cash -= fuel_cost
+                    r.fuel = r.max_fuel
+                    fuel_needed, fuel_cost = 0, 0
+                    print("🟩 Fuel tanks fully pressurized.")
+                else:
+                    print("❌ Insufficient corporate liquid cash reserves.")
+                time.sleep(1)
+            elif choice == "2" and repair_needed > 0:
+                if self.player.cash >= repair_cost:
+                    self.player.cash -= repair_cost
+                    r.condition = 100.0
+                    repair_needed, repair_cost = 0, 0
+                    print("🟩 Frame integrated. Structural safety index: 100%")
+                else:
+                    print("❌ Insufficient corporate liquid cash reserves.")
+                time.sleep(1)
+            elif choice == "3":
+                if self.player.cash >= cargo_upgrade_cost:
+                    self.player.cash -= cargo_upgrade_cost
+                    r.cargo_tier += 1
+                    r.max_cargo += 10
+                    print(f"🟩 Hull Expanded! New maximum volume: {r.max_cargo}")
+                    break # Break out to refresh master screen assets
+                else:
+                    print("❌ Upgrades require hard capital up front.")
+                time.sleep(1)
+            elif choice == "4":
+                if r.engine_tier >= 4:
+                    print("❌ Drive core is already operating at maximum efficiency.")
+                elif self.player.cash >= engine_upgrade_cost:
+                    self.player.cash -= engine_upgrade_cost
+                    r.engine_tier += 1
+                    print(f"🟩 Engine optimized! Flight burn rate dropped to: {r.fuel_per_jump}L/jump.")
+                    break
+                else:
+                    print("❌ Upgrades require hard capital up front.")
+                time.sleep(1)
+            elif choice == "5":
+                if r.armor_tier >= 4:
+                    print("❌ Hull shielding matrix cannot be augmented further.")
+                elif self.player.cash >= armor_upgrade_cost:
+                    self.player.cash -= armor_upgrade_cost
+                    r.armor_tier += 1
+                    print(f"🟩 Armor reinforced! Passive event damage absorption: {r.damage_reduction * 100}%")
+                    break
+                else:
+                    print("❌ Upgrades require hard capital up front.")
+                time.sleep(1)
+            elif choice == "b" or choice == "":
+                break
 
     def run(self):
         """Main operational execution loop."""
