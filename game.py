@@ -129,6 +129,7 @@ class Player:
         self.current_hub = random.choice(HUBS)
         self.rig = Rig()
         self.days_elapsed = 1
+        self.debt = 2500
 
 class EventEngine:
     def __init__(self):
@@ -310,8 +311,10 @@ class GameEngine:
         cond_color = CLR["GREEN"] if r.condition > 40 else CLR["RED"]
         cargo_color = CLR["CYAN"] if r.free_cargo > 0 else CLR["YELLOW"]
         
+        print()
+        print()
         print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
-        print(f" {CLR['BOLD']}OPERATOR:{CLR['RESET']} {p.name:<13} | {CLR['BOLD']}DAY:{CLR['RESET']} {CLR['CYAN']}{p.days_elapsed:<3}{CLR['RESET']} | {CLR['BOLD']}LOCATION:{CLR['RESET']} {CLR['YELLOW']}{p.current_hub}{CLR['RESET']}")
+        print(f" {CLR['BOLD']}OPERATOR:{CLR['RESET']} {p.name:<13} | {CLR['BOLD']}DAY:{CLR['RESET']} {CLR['CYAN']}{p.days_elapsed:02d}{CLR['RESET']} | {CLR['BOLD']}LOCATION:{CLR['RESET']} {CLR['YELLOW']}{p.current_hub}{CLR['RESET']}")
         print(f" {CLR['BOLD']}CASH:{CLR['RESET']} {CLR['GREEN']}${p.cash:<14}{CLR['RESET']} | {CLR['BOLD']}FUEL:{CLR['RESET']} {fuel_color}{r.fuel}/{r.max_fuel}L{CLR['RESET']} | {CLR['BOLD']}RIG INTEGRITY:{CLR['RESET']} {cond_color}{r.condition:.1f}%{CLR['RESET']}")
         print(f" {CLR['BOLD']}CARGO CONFIGURATION:{CLR['RESET']} {cargo_color}{r.free_cargo}/{r.max_cargo} Units Free{CLR['RESET']}")
         print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
@@ -334,7 +337,7 @@ class GameEngine:
         m_color = mod_colors.get(current_market.current_modifier, CLR['WHITE'])
         
         print(f"\n--- {CLR['YELLOW']}{current_market.name}{CLR['RESET']} Exchange [Status: {m_color}{CLR['BOLD']}{current_market.current_modifier}{CLR['RESET']}] ---")
-        print(f"{CLR['BOLD']}{'Commodity':<18} | {'Price':<8} | {'Weight (U)':<10} | {'In Cargo':<8}{CLR['RESET']}")
+        print(f"{CLR['BOLD']}{'Commodity':<18} | {'Price':<8}   | {'Weight(U)':<10}| {'In Cargo':<8}{CLR['RESET']}")
         print(f"{CLR['CYAN']}-" * 50 + f"{CLR['RESET']}")
         
         for comm, price in current_market.prices.items():
@@ -346,8 +349,9 @@ class GameEngine:
             # Format colors based on holdings
             qty_str = f"{CLR['GREEN']}{qty:<8}{CLR['RESET']}" if qty > 0 else f"{qty:<8}"
             
-            print(f"{comm:<18} | {CLR['GREEN']}${price:<7}{CLR['RESET']} | {weight:<10} | {qty_str}")
-        print(f"{CLR['CYAN']}-" * 50 + f"{CLR['RESET']}")
+            # THIS IS THE LINE TO EDIT (Around line 450-460):
+            print(f"{comm:<18} | {CLR['GREEN']}${price:04d}{CLR['RESET']} USDC | {weight:04d}  lbs| {qty_str}")
+            print()
 
     def handle_buy(self):
         current_market = self.markets[self.player.current_hub]
@@ -371,6 +375,7 @@ class GameEngine:
 
         if max_purchasable <= 0:
             print("🚫 Insufficient cargo space or cash funds!")
+            print()
             time.sleep(1.5)
             return
 
@@ -384,15 +389,18 @@ class GameEngine:
             self.player.rig.cargo[commodity] += qty
             SoundEngine.play("cash")
             print(f"🟩 Successfully purchased {qty}x {commodity}.")
+            print()
             time.sleep(1)
 
     def handle_sell(self):
         current_market = self.markets[self.player.current_hub]
         print("\nSelect item to SELL (or press Enter to cancel):")
+        print()
         comms_list = [c for c in COMMODITIES.keys() if self.player.rig.cargo[c] > 0]
         
         if not comms_list:
             print("You have no cargo to sell.")
+            print()
             time.sleep(1.5)
             return
 
@@ -408,6 +416,7 @@ class GameEngine:
         max_sell = self.player.rig.cargo[commodity]
 
         print(f"How many {commodity} to sell? (Max: {max_sell})")
+        print()
         qty_input = input(">> ").strip()
         if not qty_input.isdigit(): return
         qty = int(qty_input)
@@ -417,10 +426,12 @@ class GameEngine:
             self.player.rig.cargo[commodity] -= qty
             SoundEngine.play("cash")  # <-- TRIGER AUDIO
             print(f"🟨 Successfully sold {qty}x {commodity}.")
+            print()
             time.sleep(1)
 
     def handle_travel(self):
         print("\nSelect destination hub to route flight plan:")
+        print()
         destinations = [h for h in HUBS if h != self.player.current_hub]
         
         # Pull dynamic fuel cost based on engine tier
@@ -438,26 +449,131 @@ class GameEngine:
         
         # Dynamic validation check
         if self.player.rig.fuel < fuel_cost:
-            print(f"❌ Not enough fuel to complete jump! Needs {fuel_cost}L.")
+            print(f"❌ Not enough fuel  to complete jump! Needs {fuel_cost}L.")
+            print()
             time.sleep(1.5)
             return
         if self.player.rig.condition <= 0:
             print("❌ Rig is completely disabled. Repair required!")
+            print()
             time.sleep(1.5)
             return
 
+        # Execute travel overhead deductions using dynamic value
         # Execute travel overhead deductions using dynamic value
         self.player.rig.fuel -= fuel_cost
         self.player.rig.condition = max(0, self.player.rig.condition - 5)
         self.player.current_hub = destination
         self.player.days_elapsed += 1
 
+        # NEW: Add daily interest accumulation
+        if self.player.debt > 0:
+            interest = int(self.player.debt * 0.10)
+            self.player.debt += interest
+
         # Run random engine ticks upon new day jump
         self.events.roll_turn_event(self.player, self.markets)
         SoundEngine.play("jump")  # <-- TRIGER AUDIO
         print(f"🚀 Jumping through transit lanes to {destination}...")
+        print()
         time.sleep(1.5)
 
+    def check_game_conditions(self):
+        p = self.player
+        
+        # Win Condition
+        if p.cash >= 100000 and p.debt <= 0:
+            self.clear_screen()
+            SoundEngine.play("jump")
+            print(f"\n🏆 {CLR['GREEN']}{CLR['BOLD']}VICTORY ACHIEVED!{CLR['RESET']}")
+            print("="*60)
+            print(f"With ${p.cash:,} in corporate cash reserves and zero standing debt,")
+            print(f"you bought out your contract on Day {p.days_elapsed}! You are a Trade Baron.")
+            print("="*60)
+            print()
+            self.running = False
+            return True
+            
+        # Loss Condition 1: Structural Catastrophe
+        if p.rig.condition <= 0:
+            self.clear_screen()
+            SoundEngine.play("alarm")
+            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER: CRITICAL STRUCTURAL FAILURE{CLR['RESET']}")
+            print("="*60)
+            print("Your rig's frame completely decoupled in deep space transit lanes.")
+            print("Emergency pods failed to deploy. Operator footprint cleared.")
+            print("="*60)
+            print()
+            self.running = False
+            return True
+
+        # Loss Condition 2: Syndicate Bankruptcy
+        if p.cash <= 0 and p.debt > p.cash + 10000:
+            self.clear_screen()
+            SoundEngine.play("alarm")
+            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER: LIQUIDATED BY SYNDICATE{CLR['RESET']}")
+            print("="*60)
+            print("Your debt spiraled completely out of financial projection parameters.")
+            print("Corporate loan sharks have repossessed your ship and your lungs.")
+            print("="*60)
+            print()
+            self.running = False
+            return True
+            
+        return False
+
+    def handle_banking(self):
+        p = self.player
+        while True:
+            self.draw_header()
+            interest_preview = int(p.debt * 0.10)
+            print(f"\n================ 🏦 MEGACORP BANKING HUB ================")
+            print(f" Current Outstanding Debt: {CLR['RED']}${p.debt}{CLR['RESET']}")
+            print(f" Daily Accumulated Interest rate: 10% (+${interest_preview}/jump)")
+            print(f"-----------------------------------------------------------")
+            print(f" [1] Take Out Corporate Loan (+$2,000)")
+            print(f" [2] Make Debt Repayment Payment")
+            print(f" [{CLR['GREEN']}B{CLR['RESET']}]ack to Main Terminal Menu")
+            print(f"===========================================================")
+            print()
+            
+            choice = input("Bank Command >> ").strip().lower()
+
+            if choice == "1":
+                if p.debt >= 15000:
+                    print("❌ Credit line denied. Your leverage risk threshold is maximized.")
+                    print()
+                else:
+                    p.cash += 2000
+                    p.debt += 2000
+                    SoundEngine.play("cash")
+                    print("🟩 $2,000 wired to your liquidity accounts.")
+                    print()
+                time.sleep(1)
+            elif choice == "2":
+                if p.debt <= 0:
+                    print("You have no outstanding obligations.")
+                    print()
+                    time.sleep(1)
+                    continue
+                print(f"Enter amount to pay down (Max: ${min(p.cash, p.debt)}):")
+                print()
+                amt_input = input(">> ").strip()
+                if amt_input.isdigit():
+                    amt = int(amt_input)
+                    if 0 < amt <= p.cash and amt <= p.debt:
+                        p.cash -= amt
+                        p.debt -= amt
+                        SoundEngine.play("cash")
+                        print(f"🟩 Repaid ${amt} off your syndicate ledger.")
+                        print()
+                    else:
+                        print("❌ Invalid balance transaction requested.")
+                        print()
+                time.sleep(1)
+            elif choice == "b" or choice == "":
+                break
+    
     def handle_maintenance(self):
         r = self.player.rig
         
@@ -483,6 +599,7 @@ class GameEngine:
             print(f" [5] Reinforce Titanium Armor (Tier {r.armor_tier} -> {r.armor_tier + 1}) -->  ${armor_upgrade_cost} (+25% Dmg Resist)")
             print(f" [B]ack to Main Terminal Menu")
             print(f"===========================================================")
+            print()
             
             choice = input("Hangar Command >> ").strip().lower()
 
@@ -492,8 +609,10 @@ class GameEngine:
                     r.fuel = r.max_fuel
                     fuel_needed, fuel_cost = 0, 0
                     print("🟩 Fuel tanks fully pressurized.")
+                    print()
                 else:
                     print("❌ Insufficient corporate liquid cash reserves.")
+                    print()
                 time.sleep(1)
             elif choice == "2" and repair_needed > 0:
                 if self.player.cash >= repair_cost:
@@ -501,8 +620,10 @@ class GameEngine:
                     r.condition = 100.0
                     repair_needed, repair_cost = 0, 0
                     print("🟩 Frame integrated. Structural safety index: 100%")
+                    print()
                 else:
                     print("❌ Insufficient corporate liquid cash reserves.")
+                    print()
                 time.sleep(1)
             elif choice == "3":
                 if self.player.cash >= cargo_upgrade_cost:
@@ -510,31 +631,39 @@ class GameEngine:
                     r.cargo_tier += 1
                     r.max_cargo += 10
                     print(f"🟩 Hull Expanded! New maximum volume: {r.max_cargo}")
+                    print()
                     break # Break out to refresh master screen assets
                 else:
                     print("❌ Upgrades require hard capital up front.")
+                    print()
                 time.sleep(1)
             elif choice == "4":
                 if r.engine_tier >= 4:
                     print("❌ Drive core is already operating at maximum efficiency.")
+                    print()
                 elif self.player.cash >= engine_upgrade_cost:
                     self.player.cash -= engine_upgrade_cost
                     r.engine_tier += 1
                     print(f"🟩 Engine optimized! Flight burn rate dropped to: {r.fuel_per_jump}L/jump.")
+                    print()
                     break
                 else:
                     print("❌ Upgrades require hard capital up front.")
+                    print()
                 time.sleep(1)
             elif choice == "5":
                 if r.armor_tier >= 4:
                     print("❌ Hull shielding matrix cannot be augmented further.")
+                    print()
                 elif self.player.cash >= armor_upgrade_cost:
                     self.player.cash -= armor_upgrade_cost
                     r.armor_tier += 1
                     print(f"🟩 Armor reinforced! Passive event damage absorption: {r.damage_reduction * 100}%")
+                    print()
                     break
                 else:
                     print("❌ Upgrades require hard capital up front.")
+                    print()
                 time.sleep(1)
             elif choice == "b" or choice == "":
                 break
@@ -542,10 +671,20 @@ class GameEngine:
     def run(self):
         """Main operational execution loop."""
         while self.running:
+            # First, check if the player won or lost during the last action tick
+            if self.check_game_conditions():
+                break
+                
             self.draw_header()
+            if self.player.debt > 0:
+                print(f" {CLR['RED']}⚠️  OUTSTANDING BALANCE OWED ⚠️ :${self.player.debt}{CLR['RESET']}")
+                print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
+                
             self.display_market()
             
-            print(f"\n [{CLR['GREEN']}B{CLR['RESET']}]uy Cargo  |  [{CLR['GREEN']}S{CLR['RESET']}]ell Cargo  |  [{CLR['CYAN']}T{CLR['RESET']}]ravel to Hub  |  [{CLR['YELLOW']}M{CLR['RESET']}]aintenance  |  [{CLR['RED']}Q{CLR['RESET']}]uit Game")
+            # Updated to explicitly display the Financial Bank option to the operator
+            print(f"\n [{CLR['GREEN']}B{CLR['RESET']}]uy Cargo  |  [{CLR['GREEN']}S{CLR['RESET']}]ell Cargo  |  [{CLR['CYAN']}T{CLR['RESET']}]ravel to Hub")
+            print(f" [{CLR['YELLOW']}M{CLR['RESET']}]aintenance  |  [{CLR['YELLOW']}F{CLR['RESET']}]inancial Bank  |  [{CLR['RED']}Q{CLR['RESET']}]uit Game")
             action = input(f"\n{CLR['BOLD']}Command >> {CLR['RESET']}").strip().lower()
 
             if action == 'b':
@@ -556,6 +695,8 @@ class GameEngine:
                 self.handle_travel()
             elif action == 'm':
                 self.handle_maintenance()
+            elif action == 'f':
+                self.handle_banking()  # <-- REGISTERED THE ACTION MAPPING
             elif action == 'q':
                 print("\nShutting down central operating systems. Safe travels, spacer.")
                 print()
