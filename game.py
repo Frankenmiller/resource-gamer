@@ -3,6 +3,7 @@ import random
 import os
 import sys
 import time
+import subprocess
 
 CLR = {
     "RESET":   "\033[0m",
@@ -16,6 +17,35 @@ CLR = {
     "BG_RED":  "\033[41m",
     "BG_BLUE": "\033[44m"
 }
+
+class SoundEngine:
+    @staticmethod
+    def play(sound_type):
+        """Plays native cross-platform terminal synth sounds without external dependencies."""
+        try:
+            if sys.platform == "darwin":  # Mac OS X
+                if sound_type == "cash":
+                    # Stacks two distinct tones simultaneously to simulate a classic register pull
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Pop.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "jump":
+                    # Uses a cool sci-fi sounding built-in pulse
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Submarine.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "alarm":
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Basso.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            elif sys.platform == "win32":  # Windows
+                if sound_type == "cash":
+                    subprocess.Popen(["powershell", "[console]::beep(1200,100); [console]::beep(1800,150)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "jump":
+                    subprocess.Popen(["powershell", "[console]::beep(400,100); [console]::beep(600,100); [console]::beep(900,200)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "alarm":
+                    subprocess.Popen(["powershell", "[console]::beep(300,400)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                # Fallback for Linux / Others
+                print("\a", end="", flush=True)
+        except Exception:
+            pass
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -349,9 +379,10 @@ class GameEngine:
         if not qty_input.isdigit(): return
         qty = int(qty_input)
 
-        if 0 < qty <= max_purchasable:
+        if 0 < qty <= max_purchasable:  # <-- CHANGED FROM max_sell TO max_purchasable
             self.player.cash -= qty * price
             self.player.rig.cargo[commodity] += qty
+            SoundEngine.play("cash")
             print(f"🟩 Successfully purchased {qty}x {commodity}.")
             time.sleep(1)
 
@@ -384,6 +415,7 @@ class GameEngine:
         if 0 < qty <= max_sell:
             self.player.cash += qty * price
             self.player.rig.cargo[commodity] -= qty
+            SoundEngine.play("cash")  # <-- TRIGER AUDIO
             print(f"🟨 Successfully sold {qty}x {commodity}.")
             time.sleep(1)
 
@@ -422,6 +454,7 @@ class GameEngine:
 
         # Run random engine ticks upon new day jump
         self.events.roll_turn_event(self.player, self.markets)
+        SoundEngine.play("jump")  # <-- TRIGER AUDIO
         print(f"🚀 Jumping through transit lanes to {destination}...")
         time.sleep(1.5)
 
