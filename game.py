@@ -4,6 +4,19 @@ import os
 import sys
 import time
 
+CLR = {
+    "RESET":   "\033[0m",
+    "BOLD":    "\033[1m",
+    "RED":     "\033[31m",
+    "GREEN":   "\033[32m",
+    "YELLOW":  "\033[33m",
+    "BLUE":    "\033[34m",
+    "CYAN":    "\033[36m",
+    "WHITE":   "\033[37m",
+    "BG_RED":  "\033[41m",
+    "BG_BLUE": "\033[44m"
+}
+
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
@@ -261,26 +274,50 @@ class GameEngine:
         self.clear_screen()
         p = self.player
         r = p.rig
-        print("=" * 70)
-        print(f" OPERATOR: {p.name:<15} | DAY: {p.days_elapsed:<3} | LOCATION: {p.current_hub}")
-        print(f" CASH: ${p.cash:<18} | FUEL: {r.fuel}/{r.max_fuel}L | RIG COND: {r.condition:.1f}%")
-        print(f" CARGO SPACE: {r.free_cargo}/{r.max_cargo} Units Free")
-        print("=" * 70)
-        print(f" LOG: {self.events.active_event_text}")
-        print("=" * 70)
+        
+        # Color conditional logic for low levels
+        fuel_color = CLR["GREEN"] if r.fuel > 30 else CLR["RED"]
+        cond_color = CLR["GREEN"] if r.condition > 40 else CLR["RED"]
+        cargo_color = CLR["CYAN"] if r.free_cargo > 0 else CLR["YELLOW"]
+        
+        print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
+        print(f" {CLR['BOLD']}OPERATOR:{CLR['RESET']} {p.name:<13} | {CLR['BOLD']}DAY:{CLR['RESET']} {CLR['CYAN']}{p.days_elapsed:<3}{CLR['RESET']} | {CLR['BOLD']}LOCATION:{CLR['RESET']} {CLR['YELLOW']}{p.current_hub}{CLR['RESET']}")
+        print(f" {CLR['BOLD']}CASH:{CLR['RESET']} {CLR['GREEN']}${p.cash:<14}{CLR['RESET']} | {CLR['BOLD']}FUEL:{CLR['RESET']} {fuel_color}{r.fuel}/{r.max_fuel}L{CLR['RESET']} | {CLR['BOLD']}RIG INTEGRITY:{CLR['RESET']} {cond_color}{r.condition:.1f}%{CLR['RESET']}")
+        print(f" {CLR['BOLD']}CARGO CONFIGURATION:{CLR['RESET']} {cargo_color}{r.free_cargo}/{r.max_cargo} Units Free{CLR['RESET']}")
+        print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
+        
+        # Format logs intelligently based on event warnings
+        log_text = self.events.active_event_text
+        if "🚨" in log_text or "⚠️" in log_text or "🏴‍☠️" in log_text:
+            print(f" {CLR['RED']}{CLR['BOLD']}LOG: {log_text}{CLR['RESET']}")
+        elif "💰" in log_text or "🟩" in log_text:
+            print(f" {CLR['GREEN']}{CLR['BOLD']}LOG: {log_text}{CLR['RESET']}")
+        else:
+            print(f" {CLR['WHITE']}LOG: {log_text}{CLR['RESET']}")
+        print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
 
     def display_market(self):
         current_market = self.markets[self.player.current_hub]
-        print(f"\n--- {current_market.name} Exchange [Status: {current_market.current_modifier}] ---")
-        print(f"{'Commodity':<18} | {'Price':<8} | {'Weight (U)':<10} | {'In Cargo':<8}")
-        print("-" * 50)
+        
+        # Color codes based on market modifier state
+        mod_colors = {"Stable": CLR["WHITE"], "Supply Crunch": CLR["RED"], "Resource Glut": CLR["CYAN"]}
+        m_color = mod_colors.get(current_market.current_modifier, CLR['WHITE'])
+        
+        print(f"\n--- {CLR['YELLOW']}{current_market.name}{CLR['RESET']} Exchange [Status: {m_color}{CLR['BOLD']}{current_market.current_modifier}{CLR['RESET']}] ---")
+        print(f"{CLR['BOLD']}{'Commodity':<18} | {'Price':<8} | {'Weight (U)':<10} | {'In Cargo':<8}{CLR['RESET']}")
+        print(f"{CLR['CYAN']}-" * 50 + f"{CLR['RESET']}")
+        
         for comm, price in current_market.prices.items():
             if comm == "Neural Stims": 
-                continue # Hides contraband from regular purchase displays
+                continue # Kept hidden inside baseline retail nodes
             qty = self.player.rig.cargo[comm]
             weight = COMMODITIES[comm]['weight']
-            print(f"{comm:<18} | ${price:<7} | {weight:<10} | {qty:<8}")
-        print("-" * 50)
+            
+            # Format colors based on holdings
+            qty_str = f"{CLR['GREEN']}{qty:<8}{CLR['RESET']}" if qty > 0 else f"{qty:<8}"
+            
+            print(f"{comm:<18} | {CLR['GREEN']}${price:<7}{CLR['RESET']} | {weight:<10} | {qty_str}")
+        print(f"{CLR['CYAN']}-" * 50 + f"{CLR['RESET']}")
 
     def handle_buy(self):
         current_market = self.markets[self.player.current_hub]
@@ -475,8 +512,8 @@ class GameEngine:
             self.draw_header()
             self.display_market()
             
-            print("\n[B]uy Cargo  |  [S]ell Cargo  |  [T]ravel to Hub  |  [M]aintenance  |  [Q]uit Game")
-            action = input("Command >> ").strip().lower()
+            print(f"\n [{CLR['GREEN']}B{CLR['RESET']}]uy Cargo  |  [{CLR['GREEN']}S{CLR['RESET']}]ell Cargo  |  [{CLR['CYAN']}T{CLR['RESET']}]ravel to Hub  |  [{CLR['YELLOW']}M{CLR['RESET']}]aintenance  |  [{CLR['RED']}Q{CLR['RESET']}]uit Game")
+            action = input(f"\n{CLR['BOLD']}Command >> {CLR['RESET']}").strip().lower()
 
             if action == 'b':
                 self.handle_buy()
