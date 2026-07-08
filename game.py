@@ -11,9 +11,10 @@ HUBS = ["Neo-Chicago", "Detroit Foundry", "Austin Megaplex", "Silicon Valley", "
 
 COMMODITIES = {
     "Fuel Cells":  {"base_price": 50,  "volatility": 0.15, "weight": 1},
-    "Heavy Metals": {"base_price": 120, "volatility": 0.25, "weight": 3},
-    "Biotech Meds": {"base_price": 450, "volatility": 0.40, "weight": 1},
-    "Cybernetics": {"base_price": 800, "volatility": 0.30, "weight": 2},
+    "Heavy Metals": {"base_price": 120, "volatility": 0.20, "weight": 3},
+    "Biotech Meds": {"base_price": 450, "volatility": 0.35, "weight": 1},
+    "Cybernetics": {"base_price": 800, "volatility": 0.25, "weight": 2},
+    "Neural Stims":  {"base_price": 2500, "volatility": 0.60, "weight": 1}, # NEW: Black market contraband
 }
 
 HUB_ARCHETYPES = {
@@ -30,14 +31,13 @@ HUB_ARCHETYPES = {
 
 class Rig:
     def __init__(self, max_cargo=20, max_fuel=100):
-        # Current Stats
         self.max_cargo = max_cargo
         self.max_fuel = max_fuel
         self.fuel = max_fuel
-        self.condition = 100.0  # Percentage
+        self.condition = 100.0
+        # This will automatically include Neural Stims now
         self.cargo = {comm: 0 for comm in COMMODITIES}
         
-        # Upgrade Tiers (Level 1 is baseline)
         self.cargo_tier = 1
         self.engine_tier = 1
         self.armor_tier = 1
@@ -87,64 +87,165 @@ class Player:
         self.rig = Rig()
         self.days_elapsed = 1
 
-
-# ============================================================================
-# SYSTEM ENGINE CLASSES
-# ============================================================================
-
 class EventEngine:
     def __init__(self):
         self.active_global_modifier = 1.0
-        self.active_event_text = "Markets are calm across the sectors."
+        self.active_event_text = "Flight transit completed smoothly."
         self.market_modifier_name = "Stable"
+
+    def clear_screen(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
 
     def roll_turn_event(self, player, markets):
-        """Triggers turn-by-turn events impacting the player or global markets."""
-        ...  # (rest of body, indented one level under the class)
+        """Triggers interactive choices or global economic disruptions during jumps."""
         roll = random.random()
-        # Reset turn defaults
+        
+        # Reset baseline defaults
         self.active_global_modifier = 1.0
         self.market_modifier_name = "Stable"
-        self.active_event_text = "Markets are calm across the sectors."
+        self.active_event_text = "Flight transit completed smoothly."
 
-        if roll < 0.12:
-            self.active_event_text = "⚠️ CRISIS: Solar flare causes supply chain blockages! High-tech prices soaring."
+        # 1. MARKET SPECIAL EVENTS (Ambient)
+        if roll < 0.10:
+            self.active_event_text = "⚠️ CRISIS: Solar flare blocks supply chains! High-tech prices soaring."
             self.active_global_modifier = 1.6
             self.market_modifier_name = "Supply Crunch"
+            self.update_all_markets(player, markets)
+            return
             
-        elif roll < 0.24:
-            self.active_event_text = "📉 GLUT: A massive corporate asset liquidation floods regional markets!"
+        elif roll < 0.20:
+            self.active_event_text = "📉 GLUT: Corporate liquidation floods regional sectors with cheap assets!"
             self.active_global_modifier = 0.5
             self.market_modifier_name = "Resource Glut"
-        
+            self.update_all_markets(player, markets)
+            return
+
+        # 2. INTERACTIVE ENCOUNTERS (Stops execution for player choice)
         elif roll < 0.35:
-            base_damage = random.randint(15, 30)
-            # Apply armor damage reduction math
-            reduction = base_damage * player.rig.damage_reduction
-            final_damage = max(0, int(base_damage - reduction))
+            self.trigger_customs_checkpoint(player)
             
-            player.rig.condition = max(0, player.rig.condition - final_damage)
-            self.active_event_text = f"⚙️ BREAKDOWN: Coolant manifold blew. Armor absorbed {int(reduction)}% damage. Rig took -{final_damage}% Condition."            
-
-        elif roll < 0.45:
-            fine = random.randint(300, 700)
-            self.active_event_text = f"🛂 CUSTOMS: Border patrols hit you with transit tariffs. Cost you ${fine}."
-            player.cash = max(0, player.cash - fine)
+        elif roll < 0.50:
+            self.trigger_black_market_dealer(player)
             
-        elif roll < 0.55:
-            found_cash = random.randint(400, 1000)
-            self.active_event_text = f"💰 WINDFALL: You recovered abandoned corporate scrap! Scrapped for ${found_cash}."
-            player.cash += found_cash
+        elif roll < 0.65:
+            self.trigger_space_pirate_encounter(player)
 
-        # CRITICAL REFACTOR: Update all markets respecting local identities
+        # Ambient updates for non-event ticks
+        self.update_all_markets(player, markets)
+
+    def update_all_markets(self, player, markets):
         for market in markets.values():
             if market.name == player.current_hub and self.market_modifier_name != "Stable":
-                # The local market is directly rocked by the global market event multiplier
                 market.randomize_market(self.active_global_modifier, self.market_modifier_name)
             else:
-                # Other hubs experience routine baseline shifts relative to their archetype
                 market.randomize_market(1.0, "Stable")
 
+    # ================= INTERACTIVE SCENARIOS =================
+    
+    def trigger_customs_checkpoint(self, player):
+        self.clear_screen()
+        print("=" * 70)
+        print("🛂 CUSTOMS AUTHORITIES INTERCEPTED YOUR RIG")
+        print("=" * 70)
+        print("Sector security forces have flagged your transport for scanning.")
+        
+        has_contraband = player.rig.cargo["Neural Stims"] > 0
+        
+        if has_contraband:
+            print("\n🚨 WARNING: You are carrying highly illegal Neural Stims!")
+            print("[1] Attempt to bribe the officers ($1,500)")
+            print("[2] Submit to the scanner matrix (Risk seizure and massive fine)")
+        else:
+            print("\nYour cargo manifest appears entirely legal.")
+            print("[1] Cooperate fully and pay basic transit tariff ($300)")
+            print("[2] Argue administrative technicalities (Risk delay/fines)")
+
+        choice = input("\nAction >> ").strip()
+
+        if has_contraband:
+            if choice == "1" and player.cash >= 1500:
+                player.cash -= 1500
+                self.active_event_text = "🛂 CUSTOMS: Paid a $1,500 bribe. The guards looked the other way."
+            else:
+                # Caught red-handed!
+                stims_count = player.rig.cargo["Neural Stims"]
+                fine = stims_count * 2000 + 1000
+                player.rig.cargo["Neural Stims"] = 0
+                player.cash = max(0, player.cash - fine)
+                self.active_event_text = f"🚨 BUSTED: Customs seized {stims_count}x Neural Stims and fined you ${fine}!"
+        else:
+            if choice == "2" and random.random() < 0.5:
+                self.active_event_text = "🛂 CUSTOMS: Your administrative arguments worked. No fees charged!"
+            else:
+                fee = 300 if choice == "1" else 600
+                player.cash = max(0, player.cash - fee)
+                self.active_event_text = f"🛂 CUSTOMS: Processed checkpoint clearance. Paid tariff fees of ${fee}."
+        time.sleep(1)
+
+    def trigger_black_market_dealer(self, player):
+        if player.rig.free_cargo < 1:
+            return # No room for shady deals
+            
+        self.clear_screen()
+        print("=" * 70)
+        print("🛸 BACK-ALLEY INTERCEPT: SHADY DEALER")
+        print("=" * 70)
+        print("An unmarked stealth hauler hails your comms channel, offering an off-market asset.")
+        print(f"They offer 1 Unit of [Neural Stims] for an absolute steal of $1,200.")
+        print(f"Current Cargo Space: {player.rig.free_cargo}/{player.rig.max_cargo}")
+        print(f"Current Liquid Cash: ${player.cash}")
+        print("\n[1] Purchase the contraband ($1,200)")
+        print("[2] Decline the transactional risk")
+
+        choice = input("\nAction >> ").strip()
+
+        if choice == "1":
+            if player.cash >= 1200:
+                player.cash -= 1200
+                player.rig.cargo["Neural Stims"] += 1
+                self.active_event_text = "🛸 BLACK MARKET: Acquired 1 Unit of Neural Stims. Keep an eye out for customs!"
+            else:
+                self.active_event_text = "🛸 BLACK MARKET: You couldn't afford the package. The dealer warped away."
+        else:
+            self.active_event_text = "🛸 BLACK MARKET: You turned down the deal."
+        time.sleep(1)
+
+    def trigger_space_pirate_encounter(self, player):
+        self.clear_screen()
+        print("=" * 70)
+        print("🏴‍☠️ WARNING: EMERGENCE PROTOCOL - RADAR LOCK")
+        print("=" * 70)
+        print("A band of sector raiders has cornered your rig in deep transit space!")
+        print("They demand a corporate tribute or threaten total structural disassembly.")
+        print("\n[1] Pay extortion tribute ($2,000)")
+        print("[2] Push engines to maximum and break blockades")
+
+        choice = input("\nAction >> ").strip()
+
+        if choice == "1" and player.cash >= 2000:
+            player.cash -= 2000
+            self.active_event_text = "🏴‍☠️ PIRATES: Extortion payment accepted. Raiders jumped out of system."
+        else:
+            # Player chooses to run, armor shields protect them
+            damage = random.randint(30, 50)
+            reduction = damage * player.rig.damage_reduction
+            final_damage = max(0, int(damage - reduction))
+            
+            player.rig.condition = max(0, player.rig.condition - final_damage)
+            
+            # Pirates steal random cargo if you break away poorly
+            stolen_stuff = False
+            for c in player.rig.cargo:
+                if player.rig.cargo[c] > 0:
+                    player.rig.cargo[c] = max(0, player.rig.cargo[c] - 1)
+                    stolen_stuff = True
+                    break
+                    
+            text = f"🏴‍☠️ PIRATES: Gunfire punctured your hull! Took -{final_damage}% integrity (Armor blocked {int(reduction)}%)."
+            if stolen_stuff:
+                text += " They siphoned some cargo in the escape!"
+            self.active_event_text = text
+        time.sleep(1)
 
 class GameEngine:
     def __init__(self):
@@ -174,6 +275,8 @@ class GameEngine:
         print(f"{'Commodity':<18} | {'Price':<8} | {'Weight (U)':<10} | {'In Cargo':<8}")
         print("-" * 50)
         for comm, price in current_market.prices.items():
+            if comm == "Neural Stims": 
+                continue # Hides contraband from regular purchase displays
             qty = self.player.rig.cargo[comm]
             weight = COMMODITIES[comm]['weight']
             print(f"{comm:<18} | ${price:<7} | {weight:<10} | {qty:<8}")
