@@ -301,6 +301,32 @@ class GameEngine:
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
 
+    def generate_sector_map(self):
+        """Generates a perfectly aligned, customized visual transit timeline."""
+        # 1. Map your full game cities to your custom-styled shortcodes
+        city_shortcodes = {
+            "Neo-Chicago": "NEO-CHI",
+            "Detroit Foundry": "DETROIT",
+            "Austin Megaplex": "AUSTIN",
+            "Silicon Valley": "SILICON",
+            "New Orleans": "NEW-ORL"
+        }
+        
+        map_segments = []
+        for hub in HUBS:
+            # Fallback to standard uppercase 7-char crop if name isn't mapped
+            short_name = city_shortcodes.get(hub, hub.upper()[:7])
+            
+            if hub == self.player.current_hub:
+                # Active city gets the vehicle beacon and structural brackets
+                map_segments.append(f"[{CLR['CYAN']}{CLR['BOLD']}🛸 {short_name}{CLR['RESET']}]")
+            else:
+                # Standby nodes sit neatly on the flight path
+                map_segments.append(f" {short_name} ")
+        
+        connector = f"{CLR['BLUE']}══🔀══{CLR['RESET']}"
+        return connector.join(map_segments).strip()
+
     def draw_header(self):
         self.clear_screen()
         p = self.player
@@ -318,6 +344,12 @@ class GameEngine:
         print(f" {CLR['BOLD']}CASH:{CLR['RESET']} {CLR['GREEN']}${p.cash:<14}{CLR['RESET']} | {CLR['BOLD']}FUEL:{CLR['RESET']} {fuel_color}{r.fuel}/{r.max_fuel}L{CLR['RESET']} | {CLR['BOLD']}RIG INTEGRITY:{CLR['RESET']} {cond_color}{r.condition:.1f}%{CLR['RESET']}")
         print(f" {CLR['BOLD']}CARGO CONFIGURATION:{CLR['RESET']} {cargo_color}{r.free_cargo}/{r.max_cargo} Units Free{CLR['RESET']}")
         print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
+        
+        # ─── YOUR SECTOR MAP TIMELINE INTEGRATION ───────────────────────────
+        print(f" {CLR['BOLD']}SECTOR MAP VECTOR TRACKER:{CLR['RESET']}")
+        print(self.generate_sector_map())
+        print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
+        # ────────────────────────────────────────────────────────────────────
         
         # Format logs intelligently based on event warnings
         log_text = self.events.active_event_text
@@ -379,10 +411,16 @@ class GameEngine:
             time.sleep(1.5)
             return
 
+        print()
         print(f"How many {commodity} to buy? (Max: {max_purchasable})")
-        qty_input = input(">> ").strip()
-        if not qty_input.isdigit(): return
-        qty = int(qty_input)
+        print("Type M to buy Maximum")
+        qty_input = input(">> ").strip().lower()
+        if qty_input == 'm' or qty_input == 'max':
+            qty = max_purchasable
+        elif qty_input.isdigit():
+            qty = int(qty_input)
+        else:
+            qty = 0
 
         if 0 < qty <= max_purchasable:  # <-- CHANGED FROM max_sell TO max_purchasable
             self.player.cash -= qty * price
@@ -415,11 +453,17 @@ class GameEngine:
         price = current_market.prices[commodity]
         max_sell = self.player.rig.cargo[commodity]
 
-        print(f"How many {commodity} to sell? (Max: {max_sell})")
         print()
-        qty_input = input(">> ").strip()
-        if not qty_input.isdigit(): return
-        qty = int(qty_input)
+        print(f"How many {commodity} to sell? (Max: {max_sell})")
+        print("Type M to sell Maximum")
+        print()
+        qty_input = input(">> ").strip().lower()
+        if qty_input == 'm' or qty_input == 'max':
+            qty = max_sell
+        elif qty_input.isdigit():
+            qty = int(qty_input)
+        else:
+            qty = 0
 
         if 0 < qty <= max_sell:
             self.player.cash += qty * price
