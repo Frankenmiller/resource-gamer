@@ -163,7 +163,7 @@ class EventEngine:
 
         # 1. MARKET SPECIAL EVENTS (Ambient)
         if roll < 0.10:
-            self.active_event_text = "⚠️ CRISIS: Solar flare blocks supply chains! High-tech prices soaring."
+            self.active_event_text = "⚠️  CRISIS ⚠️  Solar flare blocks supply chains! High-tech prices soaring."
             self.active_global_modifier = 1.6
             self.market_modifier_name = "Supply Crunch"
             self.update_all_markets(player, markets)
@@ -208,21 +208,22 @@ class EventEngine:
         has_contraband = player.rig.cargo["Neural Stims"] > 0
         
         if has_contraband:
-            print(f"\n{CLR['RED']}🚨 WARNING 🚨: You are carrying highly illegal Neural Stims 🚨!!!{CLR['RESET']}")
+            print(f"\n{CLR['RED']}🚨 WARNING 🚨: You are carrying highly illegal Neural Stims!!!{CLR['RESET']}")
             print("[1] Attempt to bribe the officers ($1,500)")
             print("[2] Submit to the scanner matrix (Risk seizure and massive fine)")
         else:
             print(f"\n{CLR['GREEN']}💯 Your cargo manifest appears entirely legal 💯{CLR['RESET']}")
             print()
-            print("[1] Cooperate fully and pay basic transit tariff ($300 USDC)")
-            print("[2] Argue administrative technicalities (Risk delay/fines)")
+            print(f"[{CLR['GREEN']}1{CLR['RESET']}] Cooperate fully and pay basic transit tariff ($300 USDC)")
+            print(f"[{CLR['GREEN']}2{CLR['RESET']}] Argue administrative technicalities (Risk delay/fines)")
 
         choice = input("\nAction >> ").strip()
+        print()
 
         if has_contraband:
             if choice == "1" and player.cash >= 1500:
                 player.cash -= 1500
-                self.active_event_text = "🛂 CUSTOMS 🛂: Paid a $1,500 bribe. The guards looked the other way."
+                self.active_event_text = "🛂 CUSTOMS 🛂: Paid a $1,500 bribe"
             else:
                 # Caught red-handed!
                 stims_count = player.rig.cargo["Neural Stims"]
@@ -247,8 +248,8 @@ class EventEngine:
         print("=" * 70)
         print("🛸 BACK-ALLEY INTERCEPT: SHADY DEALER")
         print("=" * 70)
-        print("An unmarked stealth hauler hails your comms channel, offering an off-market asset.")
-        print(f"They offer 1 Unit of [Neural Stims] for an absolute steal of $1200 USDC")
+        print("An unmarked stealth hauler hails your comms channel, offering an off")
+        print(f"market asset: 1 Unit of [Neural Stims] for $1200 USDC")
         print(f"Current Cargo Space: {player.rig.free_cargo}/{player.rig.max_cargo}")
         print(f"Current Liquid Cash: ${player.cash} USDC")
         print("\n[1] Purchase the contraband ($1200 USDC)")
@@ -269,19 +270,23 @@ class EventEngine:
 
     def trigger_space_pirate_encounter(self, player):
         self.clear_screen()
+        print()
         print("=" * 65)
-        print("🏴‍☠️ WARNING: EMERGENCE PROTOCOL - RADAR LOCK")
+        print(" -------- 🚨 WARNING 🚨 EMERGENCE PROTOCOL - RADAR LOCK -------")
         print("=" * 65)
-        print("A band of sector raiders has cornered your rig in deep transit space!")
-        print("They demand a corporate tribute or threaten total structural disassembly.")
-        print("\n[1] Pay extortion tribute ($2,000 USDC)")
-        print("[2] Push engines to maximum and break blockades")
+        print()
+        print("A band of sector raiders has cornered your rig in transit space!")
+        print("They demand a ransom or threaten total structural anihilation")
+        print()
+        print(f"[{CLR['GREEN']}1{CLR['RESET']}] -----------------------> Pay extortion tribute ($2,000 USDC)")
+        print(f"[{CLR['GREEN']}2{CLR['RESET']}] ---------------> Push engines to maximum and break blockades")
 
-        choice = input("\nAction >> ").strip()
+        choice = input("\nWhat do you wanna do? >> ").strip()
+        print()
 
         if choice == "1" and player.cash >= 2000:
             player.cash -= 2000
-            self.active_event_text = "🏴‍☠️ PIRATES: Extortion payment accepted. Raiders jumped out of system."
+            self.active_event_text = "🏴‍☠️ PIRATES 🏴‍☠️: Extortion payment accepted ✅"
         else:
             # Player chooses to run, armor shields protect them
             damage = random.randint(30, 50)
@@ -298,7 +303,7 @@ class EventEngine:
                     stolen_stuff = True
                     break
                     
-            text = f"🏴‍☠️ PIRATES: Gunfire punctured your hull! Took -{final_damage}% integrity (Armor blocked {int(reduction)}%)."
+            text = f"🏴‍☠️ PIRATES 🏴‍☠️: Gunfire punctured your hull! Took -{final_damage}% integrity \n (Armor blocked {int(reduction)}%)."
             if stolen_stuff:
                 text += " They siphoned some cargo in the escape!"
             self.active_event_text = text

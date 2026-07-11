@@ -58,8 +58,8 @@ class GameEngine:
         print()
         print()
         print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
-        print(f" {CLR['BOLD']}OPERATOR:{CLR['RESET']} {p.name:<13} | {CLR['BOLD']}DAY:{CLR['RESET']} {CLR['CYAN']}{p.days_elapsed:02d}{CLR['RESET']} | {CLR['BOLD']}LOCATION:{CLR['RESET']} {CLR['YELLOW']}{p.current_hub}{CLR['RESET']}")
-        print(f" {CLR['BOLD']}CASH:{CLR['RESET']} {CLR['GREEN']}${p.cash:<14}{CLR['RESET']} | {CLR['BOLD']}FUEL:{CLR['RESET']} {fuel_color}{r.fuel}/{r.max_fuel}L{CLR['RESET']} | {CLR['BOLD']}RIG INTEGRITY:{CLR['RESET']} {cond_color}{r.condition:.1f}%{CLR['RESET']}")
+        print(f" {CLR['BOLD']}OPERATOR:{CLR['RESET']} {p.name:<13}   {CLR['BOLD']}DAY:{CLR['RESET']} {CLR['CYAN']}{p.days_elapsed:02d}{CLR['RESET']}        {CLR['BOLD']}LOCATION:{CLR['RESET']} {CLR['YELLOW']}{p.current_hub}{CLR['RESET']}")
+        print(f" {CLR['BOLD']}CASH:{CLR['RESET']} {CLR['CYAN']}${p.cash:<4}{CLR['RESET']} USDC      {CLR['BOLD']}FUEL:{CLR['RESET']} {fuel_color}{r.fuel}/{r.max_fuel}L{CLR['RESET']}           {CLR['BOLD']}RIG INTEGRITY:{CLR['RESET']} {cond_color}{r.condition:.1f}%{CLR['RESET']}")
         print(f" {CLR['BOLD']}CARGO CONFIGURATION:{CLR['RESET']} {cargo_color}{r.free_cargo}/{r.max_cargo} Units Free{CLR['RESET']}")
         print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
         
@@ -153,6 +153,7 @@ class GameEngine:
             time.sleep(1)
 
     def handle_sell(self):
+        from game import COMMODITIES, SoundEngine
         current_market = self.markets[self.player.current_hub]
         print("\nSelect item to SELL (or press Enter to cancel):")
         print()
@@ -205,8 +206,14 @@ class GameEngine:
         fuel_cost = self.player.rig.fuel_per_jump
         
         for idx, hub in enumerate(destinations, 1):
-            # Dynamic text printout reflecting upgrades
-            print(f"[{idx}] {hub} (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
+            if hub == "Neo-Chicago":
+                print(f"[{idx}] {hub} -------------------> (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
+            elif hub in ["Detroit Foundry", "Austin Megaplex"]: # Fixed with 'in' keyword
+                print(f"[{idx}] {hub} ---------------> (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
+            elif hub == "New Orleans Port":
+                print(f"[{idx}] {hub} --------------> (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
+            elif hub == "Silicon Valley":
+                print(f"[{idx}] {hub} ----------------> (Cost: {fuel_cost}L Fuel, 5% Wear & Tear)")
         
         choice = input(">> ").strip()
         if not choice.isdigit() or int(choice) not in range(1, len(destinations) + 1):
@@ -216,12 +223,12 @@ class GameEngine:
         
         # Dynamic validation check
         if self.player.rig.fuel < fuel_cost:
-            print(f"❌ Not enough fuel  to complete jump! Needs {fuel_cost}L.")
+            print(f"❌ Not enough fuel  to complete jump ❌ Needs {fuel_cost}L.")
             print()
             time.sleep(1.5)
             return
         if self.player.rig.condition <= 0:
-            print("❌ Rig is completely disabled. Repair required!")
+            print("❌ Rig is completely disabled ❌ Repair required!")
             print()
             time.sleep(1.5)
             return
@@ -313,8 +320,8 @@ class GameEngine:
         input(f"\n{CLR['CYAN']}Press Enter to cycle thrusters...{CLR['RESET']}")
     
     def execute_combat_sequence(self):
-        """Evaluates dice-roll outcomes based on rig integrity structural limits."""
         import random
+        from game import CLR
         p = self.player
         r = p.rig
         
@@ -348,7 +355,7 @@ class GameEngine:
         if p.cash >= 100000 and p.debt <= 0:
             self.clear_screen()
             SoundEngine.play("jump")
-            print(f"\n🏆 {CLR['GREEN']}{CLR['BOLD']}VICTORY ACHIEVED!{CLR['RESET']}")
+            print(f"\n🏆 {CLR['GREEN']}{CLR['BOLD']}VICTORY ACHIEVED 🏆!{CLR['RESET']}")
             print("="*60)
             print(f"With ${p.cash:,} in corporate cash reserves and zero standing debt,")
             print(f"you bought out your contract on Day {p.days_elapsed}! You are a Trade Baron.")
@@ -361,7 +368,7 @@ class GameEngine:
         if p.rig.condition <= 0:
             self.clear_screen()
             SoundEngine.play("alarm")
-            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER: CRITICAL STRUCTURAL FAILURE{CLR['RESET']}")
+            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER ☠️: CRITICAL STRUCTURAL FAILURE{CLR['RESET']}")
             print("="*60)
             print("Your rig's frame completely decoupled in deep space transit lanes.")
             print("Emergency pods failed to deploy. Operator footprint cleared.")
@@ -374,7 +381,7 @@ class GameEngine:
         if p.cash <= 0 and p.debt > p.cash + 10000:
             self.clear_screen()
             SoundEngine.play("alarm")
-            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER: LIQUIDATED BY SYNDICATE{CLR['RESET']}")
+            print(f"\n☠️ {CLR['RED']}{CLR['BOLD']}GAME OVER ☠️: LIQUIDATED BY SYNDICATE{CLR['RESET']}")
             print("="*60)
             print("Your debt spiraled completely out of financial projection parameters.")
             print("Corporate loan sharks have repossessed your ship and your lungs.")
@@ -403,16 +410,17 @@ class GameEngine:
             print()
             
             choice = input("Bank Command >> ").strip().lower()
+            print()
 
             if choice == "1":
                 if p.debt >= 15000:
-                    print("❌ Credit line denied. Your leverage risk threshold is maximized.")
+                    print("❌ Credit line denied ❌ Your leverage risk threshold is maximized")
                     print()
                 else:
                     p.cash += 2000
                     p.debt += 2000
                     SoundEngine.play("cash")
-                    print("🟩 $2,000 wired to your liquidity accounts.")
+                    print("💵 $2000 USDC 💵 wired to your liquidity accounts")
                     print()
                 time.sleep(1)
             elif choice == "2":
@@ -422,7 +430,7 @@ class GameEngine:
                     time.sleep(1)
                     continue
                 print(f"Enter amount to pay down (Max: ${min(p.cash, p.debt)} USDC):")
-                print(f"or simply press to [{CLR['RED']}C{CLR['RESET']}]ancel repayment")
+                print(f"or simply press to [{CLR['GREEN']}C{CLR['RESET']}]ancel repayment")
                 print()
                 amt_input = input(">> Enter repayment amount in USDC: $").strip()
                 if amt_input.isdigit():
@@ -432,12 +440,12 @@ class GameEngine:
                         p.cash -= amt
                         p.debt -= amt
                         SoundEngine.play("cash")
-                        print(f"🟩 Repaid ${amt} off your syndicate ledger.")                        
+                        print(f"💵 Repaid ${amt} USDC 💵 off your syndicate ledger")                        
                         print()
                     elif choice == "b" or choice == "":
                         break                        
                     else:
-                        print("❌ Invalid balance transaction requested.")
+                        print("❌ Invalid balance transaction requested ❌")
                         print()
                 time.sleep(1)
             elif choice == "b" or choice == "":
@@ -542,44 +550,39 @@ class GameEngine:
                 break
 
     def generate_market_rumor(self):
-        """Randomly generates a high-impact market shift event in a distant hub."""
+        from game import CLR
         import random
-        # 35% chance a rumor drops during a flight transition
+
         if random.random() > 0.35:
             return
-
-        # Pick a random hub that ISN'T where the player just landed
         other_hubs = [h for h in self.markets.keys() if h != self.player.current_hub]
         if not other_hubs:
             return
         target_hub = random.choice(other_hubs)
         market = self.markets[target_hub]
-
-        # Pick a random commodity (excluding Neural Stims)
         available_comms = [c for c in market.prices.keys() if c != "Neural Stims"]
         if not available_comms:
             return
         target_comm = random.choice(available_comms)
-
-        # Determine if it's a massive boom or a total crash
         is_boom = random.random() > 0.5
+        
         if is_boom:
             market.current_modifier = "Supply Crunch"
-            # Spike the price instantly by 2.5x to 4x
             market.prices[target_comm] = int(market.prices[target_comm] * random.uniform(2.5, 4.0))
-            flavor_text = f"🚨 INTERCEPTED INTEL: A massive supply breakdown reported in {market.name}! Prices for {target_comm.upper()} are skyrocketing!"
+            flavor_text = f"🗣️  CHATTER-WIRE 🗣️: Spacer bars whisper supply breakdown hitting \n {market.name}! {target_comm.upper()} prices are rumored to skyrocket!"
         else:
             market.current_modifier = "Resource Glut"
-            # Tank the price down to 20% - 40% of baseline
             market.prices[target_comm] = max(10, int(market.prices[target_comm] * random.uniform(0.2, 0.4)))
-            flavor_text = f"📉 MARKET ALERT: Unloading drones dumping surplus inventory at {market.name}. {target_comm.upper()} prices have absolutely cratered!"
-
-        # Push this message directly to your game's active alert notifications ticker
+            flavor_text = f"📡  INTERCEPTED COMM-FEED 📡: Deep-space data leaks suggest \n unloading drones are dumping surplus inventory at \n {market.name}. {target_comm.upper()} rates are cratering!"
+            
+        # Force immediate terminal print output so you see it instantly during jumps
+        print(f"\n{CLR['YELLOW']}{flavor_text}{CLR['RESET']}")
+        input(f"\n{CLR['CYAN']}Press Enter to acknowledge feed...{CLR['RESET']}")
+        print()
+        
+        # Silently update your event tracker object if it exists for system tracking
         if hasattr(self, 'events'):
-            self.events.active_event_text = flavor_text
-        else:
-            print(f"\n{CLR['YELLOW']}{flavor_text}{CLR['RESET']}")
-            input(f"{CLR['CYAN']}Press Enter to acknowledge feed...{CLR['RESET']}")
+            self.events.active_event_text = flavor_text        
 
     def run(self):
         """Main operational execution loop."""
@@ -591,14 +594,14 @@ class GameEngine:
                 
             self.draw_header()
             if self.player.debt > 0:
-                print(f" {CLR['RED']}⚠️  OUTSTANDING BALANCE OWED ⚠️ :${self.player.debt}{CLR['RESET']}")
+                print(f"---------------- {CLR['RED']}OUTSTANDING BALANCE OWED{CLR['RESET']} --------------> ${self.player.debt}{CLR['RESET']} USDC")
                 print(f"{CLR['BLUE']}=" * 70 + f"{CLR['RESET']}")
                 
             self.display_market()
+            print()
             
             # Updated to explicitly display the Financial Bank option to the operator
-            print(f"\n [{CLR['GREEN']}B{CLR['RESET']}]uy Cargo  |  [{CLR['GREEN']}S{CLR['RESET']}]ell Cargo  |  [{CLR['CYAN']}T{CLR['RESET']}]ravel to Hub")
-            print(f" [{CLR['YELLOW']}M{CLR['RESET']}]aintenance  |  [{CLR['YELLOW']}F{CLR['RESET']}]inancial Bank  |  [{CLR['RED']}Q{CLR['RESET']}]uit Game")
+            print(f" [{CLR['GREEN']}B{CLR['RESET']}]uy Cargo [{CLR['GREEN']}S{CLR['RESET']}]ell Cargo [{CLR['CYAN']}T{CLR['RESET']}]ravel [{CLR['YELLOW']}M{CLR['RESET']}]aintenance [{CLR['YELLOW']}F{CLR['RESET']}]inancing [{CLR['RED']}Q{CLR['RESET']}]uit")
             action = input(f"\n{CLR['BOLD']}Command >> {CLR['RESET']}").strip().lower()
 
             if action == 'b':
