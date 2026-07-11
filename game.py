@@ -22,27 +22,38 @@ class SoundEngine:
     @staticmethod
     def play(sound_type):
         """Plays native cross-platform terminal synth sounds without external dependencies."""
+        import sys, subprocess
         try:
             if sys.platform == "darwin":  # Mac OS X
                 if sound_type == "cash":
-                    # Stacks two distinct tones simultaneously to simulate a classic register pull
                     subprocess.Popen(["afplay", "/System/Library/Sounds/Pop.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                     subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 elif sound_type == "jump":
-                    # Uses a cool sci-fi sounding built-in pulse
                     subprocess.Popen(["afplay", "/System/Library/Sounds/Submarine.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif sound_type == "alarm":
+                elif sound_type == "alarm" or sound_type == "siren":
+                    # Sosumi is an aggressive alert, perfect for authority lockdowns
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Sosumi.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "scary":
+                    # Basso is a deep, ominous rumbling tone
                     subprocess.Popen(["afplay", "/System/Library/Sounds/Basso.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "bank":
+                    # Tink is a sharp, pristine digital chime for wire transfers
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Tink.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "metal":
+                    # Funk has a metallic, industrial resonance for upgrading components
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Funk.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type == "guzzle":
+                    # Blow is a hollow air rush that sounds exactly like liquid fuel pressure loading
+                    subprocess.Popen(["afplay", "/System/Library/Sounds/Blow.aiff"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             
-            elif sys.platform == "win32":  # Windows
-                if sound_type == "cash":
+            elif sys.platform == "win32":  # Windows Fallback mapping
+                if sound_type in ["cash", "bank"]:
                     subprocess.Popen(["powershell", "[console]::beep(1200,100); [console]::beep(1800,150)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif sound_type == "jump":
-                    subprocess.Popen(["powershell", "[console]::beep(400,100); [console]::beep(600,100); [console]::beep(900,200)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                elif sound_type == "alarm":
-                    subprocess.Popen(["powershell", "[console]::beep(300,400)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type in ["alarm", "siren", "scary"]:
+                    subprocess.Popen(["powershell", "[console]::beep(250,500)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                elif sound_type in ["metal", "guzzle", "jump"]:
+                    subprocess.Popen(["powershell", "[console]::beep(600,150)"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                # Fallback for Linux / Others
                 print("\a", end="", flush=True)
         except Exception:
             pass
@@ -369,21 +380,23 @@ class GameEngine:
         m_color = mod_colors.get(current_market.current_modifier, CLR['WHITE'])
         
         print(f"\n--- {CLR['YELLOW']}{current_market.name}{CLR['RESET']} Exchange [Status: {m_color}{CLR['BOLD']}{current_market.current_modifier}{CLR['RESET']}] ---")
-        print(f"{CLR['BOLD']}{'Commodity':<18} | {'Price':<8}   | {'Weight(U)':<10}| {'In Cargo':<8}{CLR['RESET']}")
-        print(f"{CLR['CYAN']}-" * 50 + f"{CLR['RESET']}")
+        print(f"{CLR['BOLD']}{'Commodity':<18} | {'Price':<10} | {'Weight(U)':<10} | {'In Cargo':<8}| {'Total Value':<12}{CLR['RESET']}")
+        print(f"{CLR['CYAN']}-" * 69 + f"{CLR['RESET']}") # Stretched divider line to fit the new column flawlessly
         
         for comm, price in current_market.prices.items():
             if comm == "Neural Stims": 
                 continue # Kept hidden inside baseline retail nodes
-            qty = self.player.rig.cargo[comm]
+            qty = self.player.rig.cargo[comm] # <-- This is our raw inventory integer
             weight = COMMODITIES[comm]['weight']
             
             # Format colors based on holdings
             qty_str = f"{CLR['GREEN']}{qty:<8}{CLR['RESET']}" if qty > 0 else f"{qty:<8}"
             
-            # THIS IS THE LINE TO EDIT (Around line 450-460):
-            print(f"{comm:<18} | {CLR['GREEN']}${price:04d}{CLR['RESET']} USDC | {weight:04d}  lbs| {qty_str}")
-            print()
+            # FIXED MATHEMATICS EXECUTOR:
+            total_val = qty * price            
+            
+            # Clean grid alignment output print:
+            print(f"{comm:<18} | {CLR['GREEN']}${price:04d}{CLR['RESET']} USDC | {weight:04d}  lbs | {qty_str} | {CLR['CYAN']}${total_val:05d}{CLR['RESET']} USDC")
 
     def handle_buy(self):
         current_market = self.markets[self.player.current_hub]
@@ -508,6 +521,7 @@ class GameEngine:
         self.player.rig.fuel -= fuel_cost
         self.player.rig.condition = max(0, self.player.rig.condition - 5)
         self.player.current_hub = destination
+        self.trigger_interception_event()
         self.player.days_elapsed += 1
 
         # NEW: Add daily interest accumulation
@@ -521,7 +535,105 @@ class GameEngine:
         print(f"🚀 Jumping through transit lanes to {destination}...")
         print()
         time.sleep(1.5)
+    
+    def trigger_interception_event(self):
+        """Randomly triggers a high-stakes encounter with rival crews during transit."""
+        import random
+        if random.random() > 0.25:
+            return
 
+        p = self.player
+        r = p.rig
+
+        if random.random() > 0.50:
+            encounter_type = "syndicate raiders"
+            SoundEngine.play("scary")
+        else:
+            encounter_type = "port authority"
+            SoundEngine.play("siren")
+
+        self.clear_screen()        
+        
+        self.clear_screen()
+        print(f"{CLR['RED']}" + "🏴‍☠️ " * 18 + f"{CLR['RESET']}")
+        print(f" {CLR['RED']}{CLR['BOLD']}CRITICAL WARNING: PROXIMITY ALERT{CLR['RESET']}")
+        print(f" Your rig has been pulled out of warp by a rival syndicate cruiser!")
+        print(f" They are locking weapon vectors onto your cargo bays.")
+        print(f"{CLR['RED']}" + "🏴‍☠️ " * 18 + f"{CLR['RESET']}")
+        print()
+
+        # Build dynamic choice constraints based on current rig configurations
+        print(f" {CLR['BOLD']}1. BURN FOIL TO EVADE{CLR['RESET']} (Costs 15L Fuel - Requires escape vectors)")
+        print(f" {CLR['BOLD']}2. JETTISON CARGO{CLR['RESET']}     (Dump 1 random inventory asset line as a bribe)")
+        print(f" {CLR['BOLD']}3. STAND YOUR GROUND{CLR['RESET']}   (Engage deflector shields and scrap with them)")
+        print()
+
+        choice = input("CHOOSE YOUR VECTOR >> ").strip()
+        print()
+
+        if choice == "1":
+            if r.fuel >= 15:
+                r.fuel -= 15
+                self.events.active_event_text = "⚠️ Burned 15L fuel executing extreme evasive maneuvers. Escaped safely!"
+            else:
+                print(f"\n {CLR['RED']}INSUFFICIENT FUEL TO EVADE!{CLR['RESET']} You are forced to stand your ground...")
+                print()
+                self.execute_combat_sequence()
+
+        elif choice == "2":
+            # Filter down to see if the player actually has cargo lines to dump
+            active_cargo = [item for item, qty in p.cargo.items() if qty > 0]
+            if active_cargo:
+                dumped_item = random.choice(active_cargo)
+                p.cargo[dumped_item] -= 1
+                # Recalculate free cargo space parameters
+                r.free_cargo += 1 
+                self.events.active_event_text = f"🏴‍☠️ Jettisoned 1 unit of {dumped_item.upper()} to bribe the raiders."
+            else:
+                print(f"\n {CLR['YELLOW']}YOUR CARGO BAY IS EMPTY!{CLR['RESET']} There is nothing to dump. Engaging combat...")
+                print()
+                self.execute_combat_sequence()
+
+        elif choice == "3":
+            self.execute_combat_sequence()
+            
+        else:
+            print(f"\n {CLR['RED']}HESITATION WAS FATAL!{CLR['RESET']} They blew past your shields while you stalled.")
+            print()
+            self.execute_combat_sequence()
+            
+        # Pause briefly so the player can process the layout outcome before the main screen flashes
+        input(f"\n{CLR['CYAN']}Press Enter to cycle thrusters...{CLR['RESET']}")
+    
+    def execute_combat_sequence(self):
+        """Evaluates dice-roll outcomes based on rig integrity structural limits."""
+        import random
+        p = self.player
+        r = p.rig
+        
+        print(f"\n{CLR['YELLOW']}🔋 Cycling kinetic energy fields... Engaging defense grids...{CLR['RESET']}")
+        print()
+        
+        # Win chance scales beautifully with the rig's actual physical health status
+        win_chance = 0.50 + (r.condition / 200.0) # E.g., 90% condition adds a sweet bonus
+        
+        if random.random() < win_chance:
+            salvage_bounty = random.randint(400, 950)
+            p.cash += salvage_bounty
+            # Take minor structural damage from the kinetic crossfire
+            damage = random.uniform(5.0, 15.0)
+            r.condition = max(0.0, r.condition - damage)
+            
+            self.events.active_event_text = f"🟩 SUCCESS: Outmaneuvered the rival rig! Salvaged ${salvage_bounty} from scraps. Structural Integrity lost: -{damage:.1f}%"
+        else:
+            # Failure drops severe damage parameters and a massive cash deduction penalty
+            theft_loss = min(p.cash, random.randint(500, 1500))
+            p.cash -= theft_loss
+            damage = random.uniform(20.0, 40.0)
+            r.condition = max(0.0, r.condition - damage)
+            
+            self.events.active_event_text = f"🚨 DEFEAT: Rig breached! Raiders looted ${theft_loss} and decimated systems. Structural Integrity lost: -{damage:.1f}%"
+    
     def check_game_conditions(self):
         p = self.player
         
@@ -565,9 +677,10 @@ class GameEngine:
             return True
             
         return False
-
+    
     def handle_banking(self):
         p = self.player
+        SoundEngine.play("guzzle")
         while True:
             self.draw_header()
             interest_preview = int(p.debt * 0.10)
@@ -602,8 +715,9 @@ class GameEngine:
                     continue
                 print(f"Enter amount to pay down (Max: ${min(p.cash, p.debt)}):")
                 print()
-                amt_input = input(">> ").strip()
+                amt_input = input(">> Enter repayment amount in USDC: $").strip()
                 if amt_input.isdigit():
+                    print(f"\033[A>> ${amt_input} USDC") # \033[A moves the cursor UP one line to overwrite the raw input neatly                if amt_input.isdigit():
                     amt = int(amt_input)
                     if 0 < amt <= p.cash and amt <= p.debt:
                         p.cash -= amt
@@ -634,15 +748,17 @@ class GameEngine:
 
         while True:
             self.draw_header()
-            print(f"\n================= 🛠️ HANGAR & UPGRADE SHOP 🛠️ ================")
-            print(f" [1] Top off Fuel (+{fuel_needed}L)             -->  ${fuel_cost}")
-            print(f" [2] Structural Repairs (+{repair_needed:.1f}%)        -->  ${repair_cost}")
-            print(f"-----------------------------------------------------------")
+            print(f"\n====================== 🛠️  HANGAR & UPGRADE SHOP 🛠️  ===================")
+            print()
+            print(f" [1] Top off Fuel  --------------------------->  ${fuel_cost:04d} (+{fuel_needed}L)")
+            print(f" [2] Structural Repairs  --------------------->  ${repair_cost:04d} (+{repair_needed:.1f}%)")
+            print(f"----------------------------------------------------------------------")
             print(f" [3] Expand Cargo Hull (Tier {r.cargo_tier} -> {r.cargo_tier + 1}) --------->  ${cargo_upgrade_cost} (+10 Space)")
             print(f" [4] Fine-Tune Hyper-Drive (Tier {r.engine_tier} -> {r.engine_tier + 1}) ----->  ${engine_upgrade_cost} (-4L Fuel/Jump)")
             print(f" [5] Reinforce Titanium Armor (Tier {r.armor_tier} -> {r.armor_tier + 1}) -->  ${armor_upgrade_cost} (+25% Dmg Resist)")
             print(f" [B]ack to Main Terminal Menu")
-            print(f"===========================================================")
+            print()
+            print(f"======================================================================")
             print()
             
             choice = input("Hangar Command >> ").strip().lower()
@@ -652,6 +768,7 @@ class GameEngine:
                     self.player.cash -= fuel_cost
                     r.fuel = r.max_fuel
                     fuel_needed, fuel_cost = 0, 0
+                    SoundEngine.play("guzzle")
                     print("🟩 Fuel tanks fully pressurized.")
                     print()
                 else:
